@@ -1,0 +1,12 @@
+version: "3"
+services:
+  db:
+    image: "postgres:10.3-alpine"
+    restart: unless-stopped
+    container_name: minesweeper-db
+    environment:
+      - POSTGRES_USER=minesweeper
+      - POSTGRES_PASSWORD=secret123
+      - POSTGRES_DB=minesweeper
+    ports:
+      - "5432:5432"
