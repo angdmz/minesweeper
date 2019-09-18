@@ -40,6 +40,8 @@ class GameInformationService:
     def user(self):
         return self.gamemodel.user
 
+    def check_for_win(self):
+        return self.field_manager.are_empty_left_on(self.gamemodel)
 
     # Get a matrix version of the map
     @property
@@ -48,7 +50,7 @@ class GameInformationService:
         for x in range(self.gamemodel.size):
             row = []
             for y in range(self.gamemodel.size):
-                content = self.field_manager.find_field_by_coordenates(x, y)
+                content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
 
                 content_value = content.symbol
                 # a non revealing matrix will show everything
@@ -60,17 +62,34 @@ class GameInformationService:
         return matrix
 
     @property
+    def notrevealed_matrix_string(self):
+        matrix = []
+        for x in range(self.gamemodel.size):
+            row = []
+            for y in range(self.gamemodel.size):
+                content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
+
+                content_value = content.symbol
+                # a non revealing matrix will show everything
+                if content.is_mine() or content.is_empty():
+                    content_value = 'X'
+                row.append(content_value)
+            matrix.append("".join(row))
+
+        return matrix
+
+    @property
     def revealed_matrix(self):
         matrix = []
 
         for x in range(self.gamemodel.size):
             row = []
             for y in range(self.gamemodel.size):
-                content = self.field_manager.find_field_by_coordenates(x, y)
+                content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
                 # a revealing matrix will show everything
                 content_value = content.symbol
                 if not content.is_mine():
-                    content_value = self.field_manager.count_adjacent_mines(x, y)
+                    content_value = self.field_manager.count_adjacent_mines(x, y, self.gamemodel)
                 row.append(content_value)
             matrix.append(row)
 
@@ -101,10 +120,10 @@ class RandomGameStarter:
     map_generator = RandomMapGenerator()
 
     def start_game(self, size, mines, user):
-        if size < 0:
-            raise InvalidSizeParameterException("Size is {}, must be greater than zero")
-        if mines < 0:
-            raise InvalidMinesParameterException("Mines is {}, must be greater than zero")
+        if size <= 0:
+            raise InvalidSizeParameterException("Size is {}, must be greater than zero".format(size))
+        if mines <= 0:
+            raise InvalidMinesParameterException("Mines is {}, must be greater than zero".format(mines))
 
         with transaction.atomic():
             game = self.game_manager.create(user=user, size=size)
@@ -141,15 +160,13 @@ class GameInteractor:
             result['map'] = game.revealed_matrix
             self.field_manager.set_to_not_active(game)
             return result
-
+        num_bombs = self.field_manager.count_adjacent_mines(x, y, game)
+        self.field_manager.define_count(x, y, str(num_bombs), game)
         win = game.check_for_win()
-
         if win:
             result['status'] = 'win'
             result['map'] = game.get_map_matrix('reveal')
             self.field_manager.set_to_not_active(game)
-
-        num_bombs = self.calculate_num_bombs(x, y, game)
 
         # Hit a regular space
         if num_bombs > 0:
@@ -160,18 +177,25 @@ class GameInteractor:
         elif num_bombs == 0:
             result['status'] = 'superclear'
             result['num_bombs'] = num_bombs
-            result['empties'] = game.compile_empties(x, y)
+            result['empties'] = game.compile_empties(x, y, game)
             game.save()
 
         return result
 
+    # Perform chain reaction of supers to find all revealed coords
+    def compile_empties(self, x, y, game):
+        empties = set(self.field_manager.get_adj_empties(x, y, game))
+        supers = self.field_manager.get_unmarked_supers(empties, game)
 
-    # precondition: field on x, y in game is empty
-    def calculate_num_bombs(self, x, y, game):
-        num_bombs = self.field_manager.count_adjacent_mines(x, y, game)
-        self.field_manager.define_count(x, y, str(num_bombs), game)
-        return num_bombs
+        while supers:
+            group = supers.pop()
+            new_empties = self.field_manager.get_adj_empties(group[0], group[1], game)
+            new_supers = self.field_manager.get_unmarked_supers(new_empties, game)
+            supers = supers.union(new_supers)
+            empties = empties.union(new_empties)
+            self.field_manager.define_count(group[0], group[1], str(group[2]), game)
 
+        return list(empties)
 
 
 class InvalidSizeParameterException(Exception):

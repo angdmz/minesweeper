@@ -1,34 +1,9 @@
 from django.db import models
 
+class GameManager(models.Manager):
 
-class MineManager(models.Manager):
-    def is_mine_on(self, x, y, game):
-        return self.filter(x=x, y=y, game=game).exists()
-
-    def create_mine(self, x, y, game):
-        return self.create(x=x, y=y, game=game)
-
-    def game_mines_queryset(self, game):
-        return self.filter(game=game)
-
-    def game_mines(self, game):
-        return set(self.game_mines_queryset(game))
-
-
-class MarkManager(models.Manager):
-    def game_marks_queryset(self, game):
-        return self.filter(game=game)
-
-    def game_marks(self, game):
-        return set(self.game_marks_queryset(game))
-
-
-class FlagManager(models.Manager):
-    def game_flags_queryset(self, game):
-        return self.filter(game=game)
-
-    def game_flags(self, game):
-        return set(self.game_flags_queryset(game))
+    def find_game_by_id(self, pk):
+        return self.get(pk=pk)
 
 
 class FieldManager(models.Manager):
@@ -50,6 +25,9 @@ class FieldManager(models.Manager):
 
     def is_mine_on(self, x, y, game):
         return self.filter(x=x, y=y, game=game, symbol='M').exists()
+
+    def is_empty_on(self, x, y, game):
+        return self.filter(x=x, y=y, game=game, symbol='E').exists()
 
     def create_mine(self, x, y, game):
         return self.update_or_create(x=x, y=y, game=game, defaults={'symbol':'M'})
@@ -74,7 +52,7 @@ class FieldManager(models.Manager):
             if out_of_bounds_x or out_of_bounds_y:
                 continue
 
-            if self._get_contents(pair[0], pair[1]) == 'B':
+            if self.is_mine_on(pair[0], pair[1], game):
                 count += 1
 
         return count
@@ -84,3 +62,35 @@ class FieldManager(models.Manager):
 
     def define_count(self, x, y, count, game):
         self.filter(game=game, x=x, y=y).update(symbol=str(count))
+
+    # Get all the supers from a list that aren't yet marked
+    def get_unmarked_supers(self, superclears, game):
+        supers = set()
+        for group in superclears:
+            if group[2] == 0 and self.is_empty_on(group[0], group[1], game):
+                supers.add(group)
+        return supers
+
+    def get_adj_empties(self, x, y, game):
+        bombs = self.count_adjacent_mines(x, y, game)
+        empties = [(x, y, bombs)]
+        coords = self._build_adj_coords(x, y)
+
+        for pair in coords:
+            out_of_bounds_x = pair[0] < 0 or pair[0] >= self.width
+            out_of_bounds_y = pair[1] < 0 or pair[1] >= self.height
+
+            if out_of_bounds_x or out_of_bounds_y:
+                continue
+
+            bombs = self._count_adj_bombs(pair[0], pair[1])
+            pair.append(bombs)
+            empties.append(tuple(pair))
+
+            if bombs != 0:
+                self._change_contents(pair[0], pair[1], str(bombs))
+
+        return empties
+
+    def are_empty_left_on(self, game):
+        return self.filter(game=game, symbol='E').exists()
