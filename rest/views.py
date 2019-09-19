@@ -1,14 +1,16 @@
 import coreapi
 import coreschema
 from django.shortcuts import render
-from rest_framework import status
-from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework import status, renderers
+from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 # Create your views here.
+from rest_framework_swagger.renderers import SwaggerUIRenderer, OpenAPIRenderer
+
 from games.game import RandomGameStarter, GameInformationService, InvalidSizeParameterException, \
     InvalidMinesParameterException, GameInteractor
 from games.models import Game
@@ -18,8 +20,8 @@ from rest.schemas import CustomSchema
 class GamesView(APIView):
     """ Game service """
 
-    authentication_classes = [TokenAuthentication, SessionAuthentication ]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication ]
+    permission_classes = [AllowAny ]
     game_starter_service = RandomGameStarter()
     game_marker = GameInteractor()
     game_manager = Game.objects
@@ -55,7 +57,7 @@ class GamesView(APIView):
         """
         Starts a new game
 
-        Precondiciones:
+        Precondition:
         - size is an integer bigger than zero
         - mines is an integer bigger than zero such that mines is lesser than (size^2)
         """
@@ -76,12 +78,14 @@ class GamesView(APIView):
             return Response({'messages': {str(ve)}}, status.HTTP_412_PRECONDITION_FAILED)
         except InvalidMinesParameterException as ve:
             return Response({'messages': {str(ve)}}, status.HTTP_412_PRECONDITION_FAILED)
+        except ValueError as ve:
+            return Response({'messages': {str(ve)}}, status.HTTP_401_UNAUTHORIZED)
 
     def put(self, request):
         """
         Marks a position in a game
 
-        Precondiciones:
+        Precondition:
         - game_id is id of existing and active game
         - x is lesser than game size
         - y is lesser than game size
@@ -106,9 +110,7 @@ class GameInteractionView(APIView):
 
     def get(self, request, game_id):
         """
-        Lista los pasos del workflow
-
-        Devuelve la lista de pasos del workflow, los mensajes y roles necesarios
+        Retrieves a game by id
         """
         game_model = self.game_manager.find_game_by_id(game_id)
         game_information = GameInformationService(game_model)

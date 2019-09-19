@@ -30,5 +30,4 @@ urlpatterns = [
     url(r'^api/v1/games', views.GamesView.as_view()),
     url(r'api/v1/docs$', schema_view),
     url(r'^api-token-auth/', authviews.obtain_auth_token),
-    url(r'/', schema_view),
 ]
