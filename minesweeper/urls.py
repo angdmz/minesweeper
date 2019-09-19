@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path
 from rest_framework import routers
 from rest_framework_swagger.views import get_swagger_view
+from rest_framework.authtoken import views as authviews
 schema_view = get_swagger_view(title='Minesweeper')
 
 from rest import views
@@ -28,5 +29,6 @@ urlpatterns = [
     path(r'api/v1/games/<int:game_id>', views.GameInteractionView.as_view()),
     url(r'^api/v1/games', views.GamesView.as_view()),
     url(r'api/v1/docs$', schema_view),
+    url(r'^api-token-auth/', authviews.obtain_auth_token),
     url(r'/', schema_view),
 ]

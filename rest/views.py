@@ -2,7 +2,9 @@ import coreapi
 import coreschema
 from django.shortcuts import render
 from rest_framework import status
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,6 +18,8 @@ from rest.schemas import CustomSchema
 class GamesView(APIView):
     """ Game service """
 
+    authentication_classes = [TokenAuthentication, SessionAuthentication ]
+    permission_classes = [IsAuthenticated]
     game_starter_service = RandomGameStarter()
     game_marker = GameInteractor()
     game_manager = Game.objects
