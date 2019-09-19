@@ -29,14 +29,6 @@ class GameInformationService:
         return self.gamemodel.size
 
     @property
-    def flag_count(self):
-        return len(self.field_manager.game_flags(self.gamemodel))
-
-    @property
-    def mark_count(self):
-        return len(self.field_manager.game_marks(self.gamemodel))
-
-    @property
     def user(self):
         return self.gamemodel.user
 
@@ -46,18 +38,10 @@ class GameInformationService:
     # Get a matrix version of the map
     @property
     def notrevealed_matrix(self):
-        matrix = []
-        for y in range(self.gamemodel.size):
-            row = []
-            for x in range(self.gamemodel.size):
-                content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
-                content_value = content.symbol
-                # a non revealing matrix will show everything
-                if content.is_mine() or content.is_empty():
-                    content_value = ''
-                row.append(content_value)
-            matrix.append(row)
-
+        matrix = [[None for x in range(self.gamemodel.size)] for y in range(self.gamemodel.size)]
+        fields = self.field_manager.game_fields(self.gamemodel)
+        for f in fields:
+            matrix[f.x][f.y] = '' if f.is_mine() or f.is_empty() else f.symbol
         return matrix
 
     @property
@@ -75,19 +59,10 @@ class GameInformationService:
 
     @property
     def revealed_matrix(self):
-        matrix = []
-
-        for y in range(self.gamemodel.size):
-            row = []
-            for x in range(self.gamemodel.size):
-                content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
-                # a revealing matrix will show everything
-                content_value = content.symbol
-                if not content.is_mine():
-                    content_value = self.field_manager.count_adjacent_mines(x, y, self.gamemodel)
-                row.append(content_value)
-            matrix.append(row)
-
+        matrix = [[None for x in range(self.gamemodel.size)] for y in range(self.gamemodel.size)]
+        fields = self.field_manager.game_fields(self.gamemodel)
+        for f in fields:
+            matrix[f.x][f.y] = f.symbol
         return matrix
 
     @property
@@ -142,14 +117,6 @@ class RandomGameStarter:
 class GameIsNotActiveException(Exception):
     pass
 
-class MarkResult:
-
-    def is_regular_space_hit(self):
-        return
-
-    def is_super_space_hit(self):
-        return
-
 
 class GameInteractor:
     game_manager = GameModel.objects
@@ -164,7 +131,7 @@ class GameInteractor:
             # User chose a bomb
             if self.field_manager.is_mine_on(x, y, game.gamemodel):
                 result['status'] = 'dead'
-                result['map'] = game.revealed_matrix
+                result['map'] = game.revealed_matrix_string
                 self.game_manager.set_to_not_active(game.gamemodel)
                 return result
             num_bombs = self.field_manager.count_adjacent_mines(x, y, game.gamemodel)
@@ -186,7 +153,9 @@ class GameInteractor:
             elif num_bombs == 0:
                 result['status'] = 'superclear'
                 result['num_bombs'] = num_bombs
-                self.compile_empties(x, y, game.gamemodel)
+                compiler = EmptiesCompiler(game.revealed_matrix)
+                map_result = compiler.compile(x, y)
+                self.field_manager.save_fields_matrix(map_result, game.gamemodel)
                 result['map'] = game.notrevealed_matrix_string
 
         return result
@@ -207,7 +176,90 @@ class GameInteractor:
         return list(empties)
 
 
+class EmptiesCompiler:
 
+    def __init__(self, map_matrix):
+
+        self.map_matrix = map_matrix
+
+    def compile(self, x, y):
+        empties = set(self.get_adj_empties(x, y))
+        supers = self.get_unmarked_supers(empties)
+
+        while supers:
+            group = supers.pop()
+            new_empties = self.get_adj_empties(group[0], group[1])
+            new_supers = self.get_unmarked_supers(new_empties)
+            supers = supers.union(new_supers)
+            empties = empties.union(new_empties)
+            self.define_count(group[0], group[1], str(group[2]))
+
+        return self.map_matrix
+
+    def get_adj_empties(self, x, y):
+        bombs = self.count_adjacent_mines(x, y)
+        empties = [(x, y, bombs)]
+        coords = self.adj_coords(x, y)
+
+        for pair in coords:
+            out_of_bounds_x = pair[0] < 0 or pair[0] >= len(self.map_matrix)
+            out_of_bounds_y = pair[1] < 0 or pair[1] >= len(self.map_matrix)
+
+            if out_of_bounds_x or out_of_bounds_y:
+                continue
+
+            bombs = self.count_adjacent_mines(pair[0], pair[1])
+            pair.append(bombs)
+            empties.append(tuple(pair))
+
+            if bombs != 0:
+                self.define_count(pair[0], pair[1], str(bombs))
+
+        return empties
+
+    def get_unmarked_supers(self, superclears):
+        supers = set()
+        for group in superclears:
+            if group[2] == 0 and self.is_empty_on(group[0], group[1]):
+                supers.add(group)
+        return supers
+
+    def is_empty_on(self, x, y):
+        return self.map_matrix[x][y] == 'E'
+
+    def count_adjacent_mines(self, x, y):
+        count = 0
+        coords = self.adj_coords(x, y)
+
+        for pair in coords:
+            out_of_bounds_x = pair[0] < 0 or pair[0] >= len(self.map_matrix)
+            out_of_bounds_y = pair[1] < 0 or pair[1] >= len(self.map_matrix)
+
+            if out_of_bounds_x or out_of_bounds_y:
+                continue
+
+            if self.is_mine_on(pair[0], pair[1]):
+                count += 1
+
+        return count
+
+    def adj_coords(self, x, y):
+        return [
+            [x - 1, y],
+            [x - 1, y - 1],
+            [x, y - 1],
+            [x + 1, y - 1],
+            [x + 1, y],
+            [x + 1, y + 1],
+            [x, y + 1],
+            [x - 1, y + 1]
+        ]
+
+    def is_mine_on(self, x, y):
+        return self.map_matrix[x][y] == 'M'
+
+    def define_count(self, x, y, count):
+        self.map_matrix[x][y] = count
 
 
 class InvalidSizeParameterException(Exception):

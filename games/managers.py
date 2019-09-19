@@ -36,6 +36,11 @@ class FieldManager(models.Manager):
     def create_mine(self, x, y, game):
         return self.update_or_create(x=x, y=y, game=game, defaults={'symbol':'M'})
 
+    def save_fields_matrix(self, fields_matrix, game):
+        for x in range(len(fields_matrix)):
+            for y in range(len(fields_matrix)):
+                self.define_count(x, y, fields_matrix[x][y], game)
+
     def count_adjacent_mines(self, x, y, game):
         count = 0
         coords = self.adj_coords(x, y)
@@ -58,14 +63,6 @@ class FieldManager(models.Manager):
     def define_count(self, x, y, count, game):
         self.filter(game=game, x=x, y=y).update(symbol=str(count))
 
-    # Get all the supers from a list that aren't yet marked
-    def get_unmarked_supers(self, superclears, game):
-        supers = set()
-        for group in superclears:
-            if group[2] == 0 and self.is_empty_on(group[0], group[1], game):
-                supers.add(group)
-        return supers
-
     def adj_coords(self, x, y):
         return [
           [x-1, y],
@@ -77,27 +74,5 @@ class FieldManager(models.Manager):
           [x, y+1],
           [x-1, y+1]
         ]
-
-    def get_adj_empties(self, x, y, game):
-        bombs = self.count_adjacent_mines(x, y, game)
-        empties = [(x, y, bombs)]
-        coords = self.adj_coords(x, y)
-
-        for pair in coords:
-            out_of_bounds_x = pair[0] < 0 or pair[0] >= game.size
-            out_of_bounds_y = pair[1] < 0 or pair[1] >= game.size
-
-            if out_of_bounds_x or out_of_bounds_y:
-                continue
-
-            bombs = self.count_adjacent_mines(pair[0], pair[1], game)
-            pair.append(bombs)
-            empties.append(tuple(pair))
-
-            if bombs != 0:
-                self.define_count(pair[0], pair[1], str(bombs), game)
-
-        return empties
-
     def are_empty_left_on(self, game):
         return self.filter(game=game, symbol='E').exists()
