@@ -5,6 +5,10 @@ class GameManager(models.Manager):
     def find_game_by_id(self, pk):
         return self.get(pk=pk)
 
+    def set_to_not_active(self, game):
+        game.active = False
+        game.save()
+
 
 class FieldManager(models.Manager):
 
@@ -34,16 +38,7 @@ class FieldManager(models.Manager):
 
     def count_adjacent_mines(self, x, y, game):
         count = 0
-        coords = [
-          [x-1, y],
-          [x-1, y-1],
-          [x, y-1],
-          [x+1, y-1],
-          [x+1, y],
-          [x+1, y+1],
-          [x, y+1],
-          [x-1, y+1]
-        ]
+        coords = self.adj_coords(x, y)
 
         for pair in coords:
             out_of_bounds_x = pair[0] < 0 or pair[0] >= game.size
@@ -71,24 +66,36 @@ class FieldManager(models.Manager):
                 supers.add(group)
         return supers
 
+    def adj_coords(self, x, y):
+        return [
+          [x-1, y],
+          [x-1, y-1],
+          [x, y-1],
+          [x+1, y-1],
+          [x+1, y],
+          [x+1, y+1],
+          [x, y+1],
+          [x-1, y+1]
+        ]
+
     def get_adj_empties(self, x, y, game):
         bombs = self.count_adjacent_mines(x, y, game)
         empties = [(x, y, bombs)]
-        coords = self._build_adj_coords(x, y)
+        coords = self.adj_coords(x, y)
 
         for pair in coords:
-            out_of_bounds_x = pair[0] < 0 or pair[0] >= self.width
-            out_of_bounds_y = pair[1] < 0 or pair[1] >= self.height
+            out_of_bounds_x = pair[0] < 0 or pair[0] >= game.size
+            out_of_bounds_y = pair[1] < 0 or pair[1] >= game.size
 
             if out_of_bounds_x or out_of_bounds_y:
                 continue
 
-            bombs = self._count_adj_bombs(pair[0], pair[1])
+            bombs = self.count_adjacent_mines(pair[0], pair[1], game)
             pair.append(bombs)
             empties.append(tuple(pair))
 
             if bombs != 0:
-                self._change_contents(pair[0], pair[1], str(bombs))
+                self.define_count(pair[0], pair[1], str(bombs), game)
 
         return empties
 

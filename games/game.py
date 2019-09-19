@@ -41,17 +41,16 @@ class GameInformationService:
         return self.gamemodel.user
 
     def check_for_win(self):
-        return self.field_manager.are_empty_left_on(self.gamemodel)
+        return not self.field_manager.are_empty_left_on(self.gamemodel)
 
     # Get a matrix version of the map
     @property
     def notrevealed_matrix(self):
         matrix = []
-        for x in range(self.gamemodel.size):
+        for y in range(self.gamemodel.size):
             row = []
-            for y in range(self.gamemodel.size):
+            for x in range(self.gamemodel.size):
                 content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
-
                 content_value = content.symbol
                 # a non revealing matrix will show everything
                 if content.is_mine() or content.is_empty():
@@ -63,28 +62,24 @@ class GameInformationService:
 
     @property
     def notrevealed_matrix_string(self):
-        matrix = []
+        matrix = self.notrevealed_matrix
+        result = []
         for x in range(self.gamemodel.size):
             row = []
             for y in range(self.gamemodel.size):
-                content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
+                content = matrix[x][y] if matrix[x][y] is not '' else 'X'
+                row.append(content)
+            result.append("".join(row))
 
-                content_value = content.symbol
-                # a non revealing matrix will show everything
-                if content.is_mine() or content.is_empty():
-                    content_value = 'X'
-                row.append(content_value)
-            matrix.append("".join(row))
-
-        return matrix
+        return result
 
     @property
     def revealed_matrix(self):
         matrix = []
 
-        for x in range(self.gamemodel.size):
+        for y in range(self.gamemodel.size):
             row = []
-            for y in range(self.gamemodel.size):
+            for x in range(self.gamemodel.size):
                 content = self.field_manager.find_field_by_coordenates(x, y, self.gamemodel)
                 # a revealing matrix will show everything
                 content_value = content.symbol
@@ -94,6 +89,18 @@ class GameInformationService:
             matrix.append(row)
 
         return matrix
+
+    @property
+    def revealed_matrix_string(self):
+        matrix = self.revealed_matrix
+        result = []
+        for x in range(self.gamemodel.size):
+            row = []
+            for y in range(self.gamemodel.size):
+                content = matrix[x][y] if matrix[x][y] is not '' else 'X'
+                row.append(content)
+            result.append("".join(row))
+        return result
 
 class RandomMapGenerator:
     field_manager = Field.objects
@@ -153,32 +160,34 @@ class GameInteractor:
             raise GameIsNotActiveException("Game is not active")
 
         result = {}
+        with transaction.atomic():
+            # User chose a bomb
+            if self.field_manager.is_mine_on(x, y, game.gamemodel):
+                result['status'] = 'dead'
+                result['map'] = game.revealed_matrix
+                self.game_manager.set_to_not_active(game.gamemodel)
+                return result
+            num_bombs = self.field_manager.count_adjacent_mines(x, y, game.gamemodel)
+            self.field_manager.define_count(x, y, str(num_bombs), game.gamemodel)
+            win = game.check_for_win()
+            if win:
+                result['status'] = 'win'
+                result['map'] = game.revealed_matrix_string
+                self.game_manager.set_to_not_active(game.gamemodel)
+                return result
 
-        # User chose a bomb
-        if self.field_manager.is_mine_on(x, y, game):
-            result['status'] = 'dead'
-            result['map'] = game.revealed_matrix
-            self.field_manager.set_to_not_active(game)
-            return result
-        num_bombs = self.field_manager.count_adjacent_mines(x, y, game)
-        self.field_manager.define_count(x, y, str(num_bombs), game)
-        win = game.check_for_win()
-        if win:
-            result['status'] = 'win'
-            result['map'] = game.get_map_matrix('reveal')
-            self.field_manager.set_to_not_active(game)
+            # Hit a regular space
+            if num_bombs > 0:
+                result['status'] = 'clear'
+                result['num_bombs'] = num_bombs
+                result['map'] = game.notrevealed_matrix_string
 
-        # Hit a regular space
-        if num_bombs > 0:
-            result['status'] = 'clear'
-            result['num_bombs'] = num_bombs
-
-        # Hit a super space
-        elif num_bombs == 0:
-            result['status'] = 'superclear'
-            result['num_bombs'] = num_bombs
-            result['empties'] = game.compile_empties(x, y, game)
-            game.save()
+            # Hit a super space
+            elif num_bombs == 0:
+                result['status'] = 'superclear'
+                result['num_bombs'] = num_bombs
+                self.compile_empties(x, y, game.gamemodel)
+                result['map'] = game.notrevealed_matrix_string
 
         return result
 
@@ -196,6 +205,9 @@ class GameInteractor:
             self.field_manager.define_count(group[0], group[1], str(group[2]), game)
 
         return list(empties)
+
+
+
 
 
 class InvalidSizeParameterException(Exception):

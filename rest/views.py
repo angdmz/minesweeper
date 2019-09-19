@@ -57,9 +57,14 @@ class GamesView(APIView):
         """
         try:
             data = request.data
-            tx = self.game_starter_service.start_game(int(data.get('size')), int(data.get('mines')), request.user)
+            game_information = self.game_starter_service.start_game(int(data.get('size')), int(data.get('mines')), request.user)
+            information = {
+                'map': game_information.notrevealed_matrix_string,
+                'game_id': game_information.pk,
+                'mine_count': game_information.mine_count,
+            }
             return Response(
-                {'message': "Game started", 'tx': tx.__dict__},
+                {'message': "Game started", 'tx': information},
                 status=status.HTTP_201_CREATED)
         except KeyError as ke:
             return Response({'messages': str(ke)}, status.HTTP_412_PRECONDITION_FAILED)
@@ -80,9 +85,9 @@ class GamesView(APIView):
         try:
             data = request.data
             game = self.game_manager.find_game_by_id(request.data.get('game_id'))
-            tx = self.game_marker.mark(game, int(data.get('x')), int(data.get('y')))
+            result = self.game_marker.mark(GameInformationService(game), int(data.get('x')), int(data.get('y')))
             return Response(
-                {'message': "Game marked", 'tx': tx.__dict__},
+                {'message': "Game marked", 'tx': result},
                 status=status.HTTP_201_CREATED)
         except KeyError as ke:
             return Response({'messages': str(ke)}, status.HTTP_412_PRECONDITION_FAILED)
