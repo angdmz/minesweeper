@@ -1,5 +1,6 @@
 import coreapi
 import coreschema
+from django.contrib.auth.models import User
 from django.shortcuts import render
 from rest_framework import status, renderers
 from rest_framework.authentication import TokenAuthentication
@@ -9,12 +10,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 # Create your views here.
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_swagger.renderers import SwaggerUIRenderer, OpenAPIRenderer
 
 from games.game import RandomGameStarter, GameInformationService, InvalidSizeParameterException, \
     InvalidMinesParameterException, GameInteractor
 from games.models import Game
 from rest.schemas import CustomSchema
+from rest.serializers import UserSerializer
 
 
 class GamesView(APIView):
@@ -119,3 +122,9 @@ class GameInteractionView(APIView):
             'mine_count': game_information.mine_count,
         }
         return Response(information, status=status.HTTP_200_OK)
+
+
+class UsersView(ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny ]
