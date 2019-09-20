@@ -22,3 +22,6 @@ websockets==5.0.1
 django-rest-auth==0.3.3
 django-cors-headers==2.4.0
 django-rest-swagger==2.1.2
+gunicorn==19.7.1
+whitenoise==3.3.1
+dj-database-url==0.4.2
