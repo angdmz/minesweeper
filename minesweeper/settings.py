@@ -26,7 +26,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = True
 
 
-ALLOWED_HOSTS = ['minesweeper.herokuapp.com', '0.0.0.0', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['minesweeper-adorda.herokuapp.com', '0.0.0.0', '127.0.0.1', 'localhost']
 
 
 # Application definition
