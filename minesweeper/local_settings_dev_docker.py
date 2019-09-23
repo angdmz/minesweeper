@@ -8,3 +8,5 @@ DATABASES = {
         'NAME': 'minesweeper',
     }
 }
+
+SECRET_KEY = 'someKey'
