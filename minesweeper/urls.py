@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.conf.urls import url
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
 from rest_framework_swagger.views import get_swagger_view
 from rest_framework.authtoken import views as authviews
 schema_view = get_swagger_view(title='Minesweeper')
