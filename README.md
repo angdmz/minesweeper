@@ -6,10 +6,10 @@ The classic game of [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_(vid
 
 ### How to play with swagger?
 1) on https://minesweeper-adorda.herokuapp.com/api/v1/docs
-2) go to api and use the POST api/v1/users to create a new user, only mandatory fields are username and password
-3) go to api and get token with POST /api-token-auth with user and password
+2) go to api section and use the POST api/v1/users to create a new user, only mandatory fields are username and password
+3) go to api-token-auth section and get token with POST /api-token-auth with user and password
 4) Authorize with the button at the top to the right, you will see a field with a tip that says api_key, there you put "Token yourToken" without quotes
-5) create a new game on api with POST api/v1/games
+5) create a new game on api section with POST api/v1/games you will find the example model there
 6) make a mark on the game with PUT api/v1/games
 7) get some game information with GET api/v1/games/{game_id}
 
