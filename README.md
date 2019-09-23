@@ -2,7 +2,16 @@
 API test
 
 ## The Game
-The classic game of [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_(video_game))
+The classic game of [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_(video_game)
+
+### How to play with swagger?
+1) on https://minesweeper-adorda.herokuapp.com/api/v1/docs
+2) go to api and use the POST api/v1/users to create a new user, only mandatory fields are username and password
+3) go to api and get token with POST /api-token-auth with user and password
+4) Authorize with the button at the top to the right, you will see a field with a tip that says api_key, there you put "Token yourToken" without quotes
+5) create a new game on api with POST api/v1/games
+6) make a mark on the game with PUT api/v1/games
+7) get some game information with GET api/v1/games/{game_id}
 
 ## Features
 The following is a list of items (prioritized from most important to least important) we wish to see:
@@ -38,4 +47,3 @@ Why not raise the application with docker-compose? for easier restart when devel
 I went for Django as a framework for it is a simple tool for developing web and REST APIs, and used heroku for deploy in cloud because it's easy too
 
 Used swagger for documentation for the API, because it's the easiest and most common implementation of OpenApi, and allowed me to automatically generate client SDK which made that part really easy
- 
