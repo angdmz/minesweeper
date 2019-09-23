@@ -47,3 +47,5 @@ Why not raise the application with docker-compose? for easier restart when devel
 I went for Django as a framework for it is a simple tool for developing web and REST APIs, and used heroku for deploy in cloud because it's easy too
 
 Used swagger for documentation for the API, because it's the easiest and most common implementation of OpenApi, and allowed me to automatically generate client SDK which made that part really easy
+
+I decided not to implement a flag mark, because it is actually not necessary to win the game, when you finally found all empty spots the game is finished
